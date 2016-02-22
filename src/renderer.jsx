@@ -1156,6 +1156,7 @@ var Renderer = React.createClass({
         }
 
         var content = this.getContent(this.props, this.state);
+        console.log(content);
         // `this.widgetIds` is appended to in `this.outputMarkdown`:
         this.widgetIds = [];
 
