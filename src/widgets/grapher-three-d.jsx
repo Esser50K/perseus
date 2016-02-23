@@ -32,17 +32,33 @@ var Grapher3D = React.createClass({
 
         var container = this.refs.container;
 
-        var canvas = document.createElement('canvas');
-        canvas.width = 800;
-        canvas.height = 600;
+        var width = 800;
+        var height = 600;
 
-        container.appendChild(canvas);
+        var camera = new THREE.PerspectiveCamera( 70, width / height, 1, 1000 );
+        camera.position.z = 400;
 
-        var context = canvas.getContext('2d');
-        context.fillStyle = 'red';
-        context.fillRect(100, 100, 100, 100);
+        var scene = new THREE.Scene();
 
-        console.log(canvas);
+        var geometry = new THREE.BoxGeometry( 200, 200, 200 );
+        var material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+
+        var mesh = new THREE.Mesh( geometry, material );
+        scene.add( mesh );
+
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize(width, height);
+
+        container.appendChild( renderer.domElement );
+
+        renderer.render( scene, camera );
+
+        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+        //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.enableZoom = false;
     },
 
     render: function() {
