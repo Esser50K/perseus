@@ -1,3 +1,4 @@
+/* eslint-disable */
 var React = require("react");
 var _ = require("underscore");
 
@@ -28,6 +29,20 @@ var Grapher3D = React.createClass({
 
     componentDidMount: function() {
         this.forceUpdate();
+
+        var container = this.refs.container;
+
+        var canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 600;
+
+        container.appendChild(canvas);
+
+        var context = canvas.getContext('2d');
+        context.fillStyle = 'red';
+        context.fillRect(100, 100, 100, 100);
+
+        console.log(canvas);
     },
 
     render: function() {
@@ -72,18 +87,7 @@ var Grapher3D = React.createClass({
             }
         };
 
-        return <div className="perseus-3d-grapher">
-            {problemNumComponent}
-            <Renderer
-                {...this.props}
-                ref="renderer"
-                apiOptions={apiOptions}
-                interWidgets={this._interWidgets}
-                reviewMode={!!this.props.reviewModeRubric}
-                onInteractWithWidget={onInteractWithWidget} />
-            {this.props.icon && <div className="3d-grapher-icon">
-                {this.props.icon}
-            </div>}
+        return <div className="perseus-3d-grapher" ref="container">
         </div>;
     },
 
