@@ -34,39 +34,30 @@ var Grapher3D = React.createClass({
         var width = 800;
         var height = 600;
         var aspect = width/height;
-        var fov = 70;
+        var fov = 10;
         var near = 1;
-        var far = 1000;
-
+        var far = 500;
 
         var scene = new THREE.Scene();
         var camera = new THREE.PerspectiveCamera(
             fov, aspect, near, far
         );
-        camera.position.z = 400;
+        camera.position.set(0, 40, 20);
         var renderer = new THREE.WebGLRenderer();
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height);
         container.appendChild(renderer.domElement);
 
-        shading = THREE.SmoothShading
-
-        
-        var material = new THREE.MeshPhongMaterial({
-            color : 0x2194ce,
-            specular: 0x009900,
-            shininess: 10,
-            shading: THREE.SmoothShading
-        });
-        var mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = 2;
-        scene.add(mesh);
+        scene.add(this.getGraphMesh());
+        scene.add(this.getAxes());
 
         scene.add(new THREE.AmbientLight( 0xaaaaaa ));
 
-        var light = new THREE.DirectionalLight(0xdddddd, 0.5);
-        light.position.set( -1, 1, 1);
-        scene.add( light );        
+        var high_light = new THREE.DirectionalLight(0xdddddd, 0.5);
+        var low_light = new THREE.DirectionalLight(0xdddddd, 0.5);
+        high_light.position.set( -1, 1, 1);
+        low_light.position.set(-1, -1, 1)
+        scene.add(high_light, low_light);
 
         renderer.render(scene, camera);        
 
@@ -75,7 +66,7 @@ var Grapher3D = React.createClass({
         //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
         controls.enableDamping = true;
         controls.dampingFactor = 1.0;
-        controls.enableZoom = false;
+        controls.enableZoom = true;
 
 
         this.setState({
@@ -87,40 +78,84 @@ var Grapher3D = React.createClass({
 
     },
 
-    getGeometry: function(){
-        // var meshFunction = function(u, v){
-        //     var x = 200*u - 100;
-        //     var y = 200*v - 100;
-        //     var z = 100*u*v
-        //     return new THREE.Vector3(x, y, z);
-        // };
-        // var geometry = new THREE.Geometry()
-        // var step = 0.01;
-        // for (u = 0; u < 1; u += step){
-        //     for (v = 0; v < 1; v += step){
-        //         index = geometry.faces.length
-        //         geometry.vertices.push(
-        //             meshFunction(u, v),
-        //             meshFunction(u+step, v),
-        //             meshFunction(u, v+step),
-        //             meshFunction(u+step, v+step)
-        //         );
-        //         geometry.faces.push(
-        //             // new THREE.Face3(index, index+1, index+2),
-        //             new THREE.Face3(index+1, index+2, index+3)
-        //         );
-        //     }
-        // }
+    getGraphMesh: function(){
+        var u_min = -5;
+        var u_max = 5;
+        var v_min = -5;
+        var v_max = 5;
 
-        // return geometry;
+        var u_range = u_max - u_min;
+        var v_range = v_max - v_min;
 
-        return new THREE.TorusGeometry(120, 48, 20, 50);
+        var meshFunction = function(u, v){
+            var x = u_range*u + u_min;
+            var y = v_range*v + v_min;
+            var z = Math.sin(x)*Math.sin(y)
+            //return in order x, z, y to accomidate
+            //orbital controls
+            return new THREE.Vector3(x, z, y);
+        };
+        var geometry = new THREE.ParametricGeometry(
+            meshFunction, 100, 100, true
+        )
+        var material = new THREE.MeshPhongMaterial({
+            color : 0x2194ce,
+            specular: 0x009900,
+            shininess: 10,
+            shading: THREE.SmoothShading, 
+            side: THREE.DoubleSide,
+            transparent : true,
+            opacity : 1,
+        });
+        return new THREE.Mesh(geometry, material);
+    },
+
+    getAxes: function(){
+        var axis_radius = 5;
+        var group = new THREE.Group();
+
+        var material = new THREE.LineBasicMaterial({
+            color: 0x303030,
+            linewidth : 1
+        });
+
+        // Draw xz plane and y axis instead of 
+        // xy plane and z axis to accomiate orbital
+        // controls.
+
+        // xz plane
+        var  xz_plane = new THREE.Geometry();
+        var step = 1;
+
+        for (var i = -axis_radius; i <= axis_radius; i += step){
+            xz_plane.vertices.push(
+                new THREE.Vector3(-axis_radius, 0, i),
+                new THREE.Vector3(axis_radius, 0, i)
+            );
+            xz_plane.vertices.push(
+                new THREE.Vector3(i, 0, -axis_radius),
+                new THREE.Vector3(i, 0, axis_radius)
+            );
+        }
+        group.add(new THREE.LineSegments(xz_plane, material));
+
+        // y-axis
+        var y_material = new THREE.LineBasicMaterial({
+            color : 0xdddddd
+        });
+        var y_axis = new THREE.Geometry();
+        y_axis.vertices.push(
+            new THREE.Vector3(0, -axis_radius, 0),
+            new THREE.Vector3(0, axis_radius, 0)
+        );
+        group.add(new THREE.LineSegments(y_axis, y_material));
+
+        return group;
     },
 
     componentDidMount: function() {
         this.forceUpdate();
-        geometry = this.getGeometry();
-        this.initializeThreeState(geometry);
+        this.initializeThreeState();
         this.updateThreeJS();
     },
 
