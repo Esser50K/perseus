@@ -57,8 +57,29 @@ var Grapher3D = React.createClass({
         var controls = new THREE.OrbitControls( camera, renderer.domElement );
         //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
         controls.enableDamping = true;
-        controls.dampingFactor = 0.25;
+        controls.dampingFactor = 1.0;
         controls.enableZoom = false;
+
+        this.setState({
+            renderer,
+            controls,
+            scene,
+            camera
+        });
+
+        this.updateThreeJS();
+    },
+
+    updateThreeJS() {
+        // queue the next update
+        requestAnimationFrame(() => this.updateThreeJS());
+
+        if (this.state) {
+            const { controls, renderer, scene, camera } = this.state;
+
+            controls.update();
+            renderer.render( scene, camera );
+        }
     },
 
     render: function() {
