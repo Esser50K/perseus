@@ -27,46 +27,100 @@ var Grapher3D = React.createClass({
         };
     },
 
-    componentDidMount: function() {
-        this.forceUpdate();
-
+    initializeThreeState: function(geometry){
         var container = this.refs.container;
 
+        //TODO, automatic width and height changes
         var width = 800;
         var height = 600;
+        var aspect = width/height;
+        var fov = 70;
+        var near = 1;
+        var far = 1000;
 
-        var camera = new THREE.PerspectiveCamera( 70, width / height, 1, 1000 );
-        camera.position.z = 400;
 
         var scene = new THREE.Scene();
-
-        var geometry = new THREE.BoxGeometry( 200, 200, 200 );
-        var material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
-
-        var mesh = new THREE.Mesh( geometry, material );
-        scene.add( mesh );
-
+        var camera = new THREE.PerspectiveCamera(
+            fov, aspect, near, far
+        );
+        camera.position.z = 400;
         var renderer = new THREE.WebGLRenderer();
-        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height);
+        container.appendChild(renderer.domElement);
 
-        container.appendChild( renderer.domElement );
+        shading = THREE.SmoothShading
 
-        renderer.render( scene, camera );
+        
+        var material = new THREE.MeshPhongMaterial({
+            color : 0x2194ce,
+            specular: 0x009900,
+            shininess: 10,
+            shading: THREE.SmoothShading
+        });
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = 2;
+        scene.add(mesh);
 
-        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+        scene.add(new THREE.AmbientLight( 0xaaaaaa ));
+
+        var light = new THREE.DirectionalLight(0xdddddd, 0.5);
+        light.position.set( -1, 1, 1);
+        scene.add( light );        
+
+        renderer.render(scene, camera);        
+
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement );
         //controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
         controls.enableDamping = true;
         controls.dampingFactor = 1.0;
         controls.enableZoom = false;
 
+
         this.setState({
             renderer,
             controls,
             scene,
-            camera
+            camera,
         });
 
+    },
+
+    getGeometry: function(){
+        // var meshFunction = function(u, v){
+        //     var x = 200*u - 100;
+        //     var y = 200*v - 100;
+        //     var z = 100*u*v
+        //     return new THREE.Vector3(x, y, z);
+        // };
+        // var geometry = new THREE.Geometry()
+        // var step = 0.01;
+        // for (u = 0; u < 1; u += step){
+        //     for (v = 0; v < 1; v += step){
+        //         index = geometry.faces.length
+        //         geometry.vertices.push(
+        //             meshFunction(u, v),
+        //             meshFunction(u+step, v),
+        //             meshFunction(u, v+step),
+        //             meshFunction(u+step, v+step)
+        //         );
+        //         geometry.faces.push(
+        //             // new THREE.Face3(index, index+1, index+2),
+        //             new THREE.Face3(index+1, index+2, index+3)
+        //         );
+        //     }
+        // }
+
+        // return geometry;
+
+        return new THREE.TorusGeometry(120, 48, 20, 50);
+    },
+
+    componentDidMount: function() {
+        this.forceUpdate();
+        geometry = this.getGeometry();
+        this.initializeThreeState(geometry);
         this.updateThreeJS();
     },
 
@@ -75,10 +129,15 @@ var Grapher3D = React.createClass({
         requestAnimationFrame(() => this.updateThreeJS());
 
         if (this.state) {
-            const { controls, renderer, scene, camera } = this.state;
+            const {controls, renderer, scene, camera} = this.state;
+
+            scene.children.forEach(function(mesh) {
+                //TODO, better rotation
+                // mesh.rotation.z += 0.01
+            })
 
             controls.update();
-            renderer.render( scene, camera );
+            renderer.render(scene, camera);
         }
     },
 
