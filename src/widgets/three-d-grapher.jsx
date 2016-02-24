@@ -6,6 +6,7 @@ var ApiOptions = require("../perseus-api.jsx").Options;
 var Changeable   = require("../mixins/changeable.jsx");
 var Editor = require("../editor.jsx");
 var Renderer = require("../renderer.jsx");
+var MathInput = require("../components/math-input.jsx");
 
 var ThreeDGrapher = React.createClass({
     mixins: [Changeable],
@@ -111,7 +112,7 @@ var ThreeDGrapher = React.createClass({
             return new THREE.Vector3(x, z, y);
         };
         var geometry = new THREE.ParametricGeometry(
-            meshFunction, 100, 100, true
+            meshFunction, 100, 100
         )
         var material = new THREE.MeshPhongMaterial({
             color : 0x2194ce,
@@ -200,8 +201,56 @@ var ThreeDGrapher = React.createClass({
     },
 });
 
+var EquationEntry = React.createClass({
+    propTypes: {
+        //TODO
+    }, 
+
+    render: function(){
+        return <div className="equation-entry">
+
+        </div>
+    }
+})
+
+var EntryComponent = React.createClass({
+    handleChange: function(){
+        //TODO
+    },
+
+    render: function(){
+        return (
+            <div>
+            {this.props.prompt}
+            <input
+                type={this.props.dataType}
+                placeholder="Equation with u and v"
+                value={this.props.value}
+                ref="filterTextInput"
+                onChange={this.handleChange} />
+            </div>
+        );
+    }
+})
+
 var ThreeDGrapherEditor = React.createClass({
     mixins: [Changeable],
+
+    getInitialState: function() {
+        return {
+            functionStrings: {
+                x : "u",
+                y : "v",
+                z : "u*u + v*v"
+            }, 
+            bounds: {
+                u_min : -5,
+                u_max : 5,
+                v_min : -5,
+                v_max : 5                
+            }
+        };
+    },
 
     propTypes: {
         //TODO
@@ -214,28 +263,45 @@ var ThreeDGrapherEditor = React.createClass({
         };
     },
 
-    render: function() {
-        return <div className="perseus-three-d-grapher-editor">
-            <Editor
-                ref="editor"
-                // widgets={this.props.widgets}
-                // apiOptions={this.props.apiOptions}
-                // images={this.props.images}
-                // widgetEnabled={true}
-                // immutableWidgets={false}
-                onChange={this.props.onChange} />
-        </div>;
+    handleEquationChange: function() {
+        return; 
     },
 
-    getSaveWarnings: function() {
-        return this.refs.editor.getSaveWarnings();
-    },
+    render: function() {
+        var equationEntries = [];
+        for (var letter in this.state.functionStrings){
+            equationEntries.push(
+                <EntryComponent 
+                    key={letter}
+                    type="text"
+                    prompt={letter+"(u, v) = "}
+                    value={this.state.functionStrings[letter]} />
+            )
+        }
+
+        var boundEntries = [];
+        for (var boundName in this.state.bounds){
+            boundEntries.push(
+                <EntryComponent
+                    key={boundName}
+                    type="number"
+                    prompt={boundName+ ": "}
+                    value={this.state.bounds[boundName]} />
+            )
+        }
+
+        return (
+            <div className="perseus-three-d-grapher-editor">
+                <form>{equationEntries}</form>
+                <form>{boundEntries}</form>
+            </div>
+        );
+    }, 
 
     serialize: function() {
-        return _.extend({}, this.refs.editor.serialize(), {
-            metadata: this.props.metadata
-        });
-    },
+        //TODO
+        return "";
+    }
 });
 
 
