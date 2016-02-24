@@ -5,7 +5,6 @@ var Widgets = require("./widgets.js");
 // As new widgets get added here, please also make sure they get added in
 // webapp perseus/traversal.py so they can be properly translated.
 _.each([
-    require("./widgets/three-d-grapher.jsx"),
     require("./widgets/categorizer.jsx"),
     require("./widgets/cs-program.jsx"),
     require("./widgets/dropdown.jsx"),
@@ -38,6 +37,7 @@ _.each([
     require("./widgets/simple-markdown-tester.jsx"),
     require("./widgets/sorter.jsx"),
     require("./widgets/table.jsx"),
+    require("./widgets/three-d-grapher.jsx"),    
     require("./widgets/transformer.jsx"),
     require("./widgets/unit.jsx"),
     require("./widgets/video.jsx"),
