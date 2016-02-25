@@ -107,39 +107,16 @@ var ThreeDGrapher = React.createClass({
         return controls
     },
 
-    makeStringFunctionable: function(str){
-        //TODO, use some reliable parsing library
-        var simpleReplacers = {
-            "pi" : "Math.PI",
-            "e" : "Math.E"
-        };
-        ["sin", "cos", "tan", "log"].forEach(function(expr){
-            simpleReplacers[expr] = "Math."+expr
-        });
-
-        for (key in simpleReplacers){
-            var reg = new RegExp(key, "g");
-            str = str.replace(reg, simpleReplacers[key]);
-        }
-        return str;
-    },
-
     getGraphMesh: function(){
         var bounds = this.props.bounds;
         var u_range = bounds.u_max - bounds.u_min;
         var v_range = bounds.v_max - bounds.v_min;
         
-        functions = {}
+        expressions = {};
         for (let variable in this.props.functionStrings){
             var funcString = this.props.functionStrings[variable];
-            funcString = this.makeStringFunctionable(
-                KAS.parse(funcString).expr.print()
-            );
-            console.log("funcString: " + funcString);
-            functions[variable] = new Function(
-                ["u", "v"],
-                "return " + funcString
-            );
+            expr = KAS.parse(funcString).expr
+            expressions[variable] = expr
         }
 
         var meshFunction = function(u, v){
@@ -148,9 +125,9 @@ var ThreeDGrapher = React.createClass({
             //return in order x, z, y to accomidate
             //orbital controls
             return new THREE.Vector3(
-                functions.x(scaled_u, scaled_v),
-                functions.z(scaled_u, scaled_v),
-                functions.y(scaled_u, scaled_v)                 
+                expressions.x.eval({u: scaled_u, v: scaled_v}),
+                expressions.z.eval({u: scaled_u, v: scaled_v}),
+                expressions.y.eval({u: scaled_u, v: scaled_v})                 
             );
         };
         var geometry = new THREE.ParametricGeometry(
