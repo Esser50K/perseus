@@ -4,6 +4,7 @@ var _ = require("underscore");
 
 var ApiOptions = require("../perseus-api.jsx").Options;
 var Changeable   = require("../mixins/changeable.jsx");
+var EditorJsonify = require("../mixins/editor-jsonify.jsx");
 var Editor = require("../editor.jsx");
 var Renderer = require("../renderer.jsx");
 var MathInput = require("../components/math-input.jsx");
@@ -11,54 +12,57 @@ var MathInput = require("../components/math-input.jsx");
 var ThreeDGrapher = React.createClass({
     mixins: [Changeable],
 
-    propTypes: {
-        //TODO
-    },
+    // propTypes: {
+    //     //TODO
+    // },
 
-    getDefaultProps: function() {
-        return {
-            //TODO
-        };
-    },
+    // getDefaultProps: function() {
+    //     return {
+    //         //TODO
+    //     };
+    // },
 
     initializeThreeState: function(){
         //TODO, automatic width and height changes
         var width = 600;
         var height = 400;
-        var aspect_ratio = width/height;
+        var aspectRatio = width/height;
 
-        var scene = new THREE.Scene();
-        var camera = this.getCamera(aspect_ratio);
-        var renderer = this.getRenderer(renderer, width, height);
-        var controls = this.getControls(camera, renderer.domElement);
-
-        this.addLight(scene);
-        scene.add(this.getGraphMesh());
-        scene.add(this.getAxes());
-        renderer.render(scene, camera);        
+        var renderer = this.getRenderer(width, height);
+        var camera = this.getCamera(aspectRatio);
+        var controls = this.getControls(camera, renderer.domElement); 
+        var scene = this.getScene();
 
         this.setState({
             renderer,
-            controls,
-            scene,
             camera,
+            controls,
+            scene
         });
     },
 
-    getCamera: function(aspect_ratio){
+    getScene: function(){
+        var scene = new THREE.Scene();
+        this.addLight(scene);
+        scene.add(this.getGraphMesh());
+        scene.add(this.getAxes());
+        return scene;
+    },
+
+    getCamera: function(aspectRatio){
         var fov = 10;
         var near = 1;
         var far = 500;
         [x, y, z] = [-10, 20, 50];
 
         var camera = new THREE.PerspectiveCamera(
-            fov, aspect_ratio, near, far
+            fov, aspectRatio, near, far
         );
         camera.position.set(x, y, z);
         return camera;
     },
 
-    getRenderer: function(renderer, width, height){
+    getRenderer: function(width, height){
         var renderer = new THREE.WebGLRenderer();        
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height);
@@ -195,27 +199,25 @@ var ThreeDGrapher = React.createClass({
         this.updateThreeJS();
     },
 
+    // componentWillReceiveProps: function(){
+    //     //Redraw graph when receiving new props
+    //     var graph = getGraphMesh();
+    // },
+
     render: function() {
-        return <div className="perseus-3d-grapher" ref="container">
-        </div>;
+        return <div
+            className="perseus-3d-grapher" 
+            ref="container"
+         />; //
     },
 });
 
-var EquationEntry = React.createClass({
-    propTypes: {
-        //TODO
-    }, 
-
-    render: function(){
-        return <div className="equation-entry">
-
-        </div>
-    }
-})
-
 var EntryComponent = React.createClass({
     handleChange: function(){
-        //TODO
+        this.props.onUserInput(
+            this.props.keyProp,
+            this.refs.input.value
+        );
     },
 
     render: function(){
@@ -223,20 +225,20 @@ var EntryComponent = React.createClass({
             <div>
             {this.props.prompt}
             <input
-                type={this.props.dataType}
-                placeholder="Equation with u and v"
+                type="text"
+                placeholder={this.props.placeholder}
                 value={this.props.value}
-                ref="filterTextInput"
+                ref="input"
                 onChange={this.handleChange} />
             </div>
         );
     }
-})
+});
 
 var ThreeDGrapherEditor = React.createClass({
-    mixins: [Changeable],
+    mixins: [Changeable, EditorJsonify],
 
-    getInitialState: function() {
+    getDefaultProps: function() {
         return {
             functionStrings: {
                 x : "u",
@@ -247,46 +249,58 @@ var ThreeDGrapherEditor = React.createClass({
                 u_min : -5,
                 u_max : 5,
                 v_min : -5,
-                v_max : 5                
+                v_max : 5
             }
         };
     },
 
-    propTypes: {
-        //TODO
-        apiOptions: ApiOptions.propTypes,
+    handleChange: function(object, key, value){
+        object[key] = value;
+        this.forceUpdate();
+        this.change(this.props);
     },
 
-    getDefaultProps: function() {
-        return {
-            //TODO
-        };
+    handleFunctionChange: function(variable, newFuncString) {
+        this.handleChange(
+            this.props.functionStrings,
+            variable,
+            newFuncString
+        );
     },
 
-    handleEquationChange: function() {
-        return; 
+    handleBoundChange: function(bound, value) {
+        //TODO, Can't type minus first.
+        this.handleChange(
+            this.props.bounds, bound, parseInt(value)
+        );
     },
 
     render: function() {
         var equationEntries = [];
-        for (var letter in this.state.functionStrings){
+        for (var variable in this.props.functionStrings){
             equationEntries.push(
                 <EntryComponent 
-                    key={letter}
-                    type="text"
-                    prompt={letter+"(u, v) = "}
-                    value={this.state.functionStrings[letter]} />
+                    key={variable}
+                    keyProp={variable}//I want access to this
+                    prompt={variable+"(u, v) = "}
+                    placeholder="Equation with u and v"
+                    value={this.props.functionStrings[variable] || ""}
+                    onUserInput={this.handleFunctionChange}
+                 /> //
             )
         }
 
         var boundEntries = [];
-        for (var boundName in this.state.bounds){
+        for (var boundName in this.props.bounds){
             boundEntries.push(
                 <EntryComponent
                     key={boundName}
-                    type="number"
+                    keyProp={boundName}
                     prompt={boundName+ ": "}
-                    value={this.state.bounds[boundName]} />
+                    placeholder="Numerical bound"
+                    value={this.props.bounds[boundName] || ""}
+                    onUserInput={this.handleBoundChange}
+                /> //
             )
         }
 
@@ -296,11 +310,6 @@ var ThreeDGrapherEditor = React.createClass({
                 <form>{boundEntries}</form>
             </div>
         );
-    }, 
-
-    serialize: function() {
-        //TODO
-        return "";
     }
 });
 
