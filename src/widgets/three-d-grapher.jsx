@@ -46,6 +46,7 @@ var ThreeDGrapher = React.createClass({
         var scene = new THREE.Scene();
         this.addLight(scene);
         scene.add(this.getGraphMesh());
+        scene.add(this.getXZPlane());        
         scene.add(this.getAxes());
         return scene;
     },
@@ -140,55 +141,60 @@ var ThreeDGrapher = React.createClass({
     },
 
     getAxes: function(){
-        var axis_radius = 5;
+        var axisRadius = 5;
         var step = 1;
         var tickSize = 0.1;
 
-        var group = new THREE.Group();
+        var material = new THREE.LineBasicMaterial({
+            color : 0xdddddd
+        });
+        var xAxisGeometry = new THREE.Geometry();
+        xAxisGeometry.vertices.push(
+            new THREE.Vector3(-axisRadius, 0, 0),
+            new THREE.Vector3(axisRadius, 0, 0)
+        );
 
+        for (var i = -axisRadius; i <= axisRadius; i += step){
+            xAxisGeometry.vertices.push(
+                new THREE.Vector3(i, -tickSize, 0),
+                new THREE.Vector3(i, tickSize, 0)
+            );
+        }
+        xAxis = new THREE.LineSegments(xAxisGeometry, material);
+
+        var yAxis = xAxis.clone();
+        yAxis.rotation.set(0, 0, Math.PI/2);
+        var zAxis = xAxis.clone();
+        zAxis.rotation.set(0, Math.PI/2, 0);
+
+        var group = new THREE.Object3D();
+        group.add(xAxis, yAxis, zAxis);
+
+        return group;
+    },
+
+    getXZPlane: function() {
+        var axisRadius = 5;
+        var step = 1;
+
+        /* Draw xz plane  instead of xy plane 
+        to accomiate orbital controls. */
         var material = new THREE.LineBasicMaterial({
             color: 0x303030,
             linewidth : 1
         });
-
-        /* Draw xz plane and y axis instead of 
-         xy plane and z axis to accomiate orbital
-         controls. */
-
-        // xz plane
         var  xz_plane = new THREE.Geometry();
-
-
-        for (var i = -axis_radius; i <= axis_radius; i += step){
+        for (var i = -axisRadius; i <= axisRadius; i += step){
             xz_plane.vertices.push(
-                new THREE.Vector3(-axis_radius, 0, i),
-                new THREE.Vector3(axis_radius, 0, i)
+                new THREE.Vector3(-axisRadius, 0, i),
+                new THREE.Vector3(axisRadius, 0, i)
             );
             xz_plane.vertices.push(
-                new THREE.Vector3(i, 0, -axis_radius),
-                new THREE.Vector3(i, 0, axis_radius)
+                new THREE.Vector3(i, 0, -axisRadius),
+                new THREE.Vector3(i, 0, axisRadius)
             );
         }
-        group.add(new THREE.LineSegments(xz_plane, material));
-
-        // y-axis
-        var y_material = new THREE.LineBasicMaterial({
-            color : 0xdddddd
-        });
-        var y_axis = new THREE.Geometry();
-        y_axis.vertices.push(
-            new THREE.Vector3(0, -axis_radius, 0),
-            new THREE.Vector3(0, axis_radius, 0)
-        );
-        for (var i = -axis_radius; i <= axis_radius; i += step){
-            y_axis.vertices.push(
-                new THREE.Vector3(-tickSize, i, 0),
-                new THREE.Vector3(tickSize, i, 0)
-            );
-        }
-        group.add(new THREE.LineSegments(y_axis, y_material));
-
-        return group;
+        return new THREE.LineSegments(xz_plane, material);
     },
 
     updateThreeJS: function() {
