@@ -2,6 +2,7 @@
 var React = require("react");
 var _ = require("underscore");
 
+
 var ApiOptions = require("../perseus-api.jsx").Options;
 var Changeable   = require("../mixins/changeable.jsx");
 var EditorJsonify = require("../mixins/editor-jsonify.jsx");
@@ -99,21 +100,29 @@ var ThreeDGrapher = React.createClass({
     },
 
     getGraphMesh: function(){
-        var u_min = -5;
-        var u_max = 5;
-        var v_min = -5;
-        var v_max = 5;
-
-        var u_range = u_max - u_min;
-        var v_range = v_max - v_min;
+        bounds = this.props.bounds
+        var u_range = bounds.u_max - bounds.u_min;
+        var v_range = bounds.v_max - bounds.v_min;
+        
+        functions = {}
+        for (variable in this.props.functionStrings){
+            funcString = this.props.functionStrings[variable]
+            functions[variable] = new Function(
+                ["u", "v"],
+                "return " + funcString
+            )
+        }
 
         var meshFunction = function(u, v){
-            var x = u_range*u + u_min;
-            var y = v_range*v + v_min;
-            var z = Math.sin(x)*Math.sin(y)
+            var scaled_u = u_range*u + bounds.u_min;
+            var scaled_v = v_range*v + bounds.v_min;
             //return in order x, z, y to accomidate
             //orbital controls
-            return new THREE.Vector3(x, z, y);
+            return new THREE.Vector3(
+                functions.x(scaled_u, scaled_v),
+                functions.z(scaled_u, scaled_v),
+                functions.y(scaled_u, scaled_v)                 
+            );
         };
         var geometry = new THREE.ParametricGeometry(
             meshFunction, 100, 100
@@ -199,10 +208,12 @@ var ThreeDGrapher = React.createClass({
         this.updateThreeJS();
     },
 
-    // componentWillReceiveProps: function(){
-    //     //Redraw graph when receiving new props
-    //     var graph = getGraphMesh();
-    // },
+    componentWillReceiveProps: function(){
+        //Redraw graph when receiving new props
+        this.setState({
+            scene: this.getScene()
+        })
+    },
 
     render: function() {
         return <div
@@ -269,7 +280,7 @@ var ThreeDGrapherEditor = React.createClass({
     },
 
     handleBoundChange: function(bound, value) {
-        //TODO, Can't type minus first.
+        //TODO, Can't type minus first, or 0
         this.handleChange(
             this.props.bounds, bound, parseInt(value)
         );
