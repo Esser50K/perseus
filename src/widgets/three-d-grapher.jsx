@@ -9,6 +9,8 @@ var EditorJsonify = require("../mixins/editor-jsonify.jsx");
 var Editor = require("../editor.jsx");
 var Renderer = require("../renderer.jsx");
 var MathInput = require("../components/math-input.jsx");
+var ApiClassNames = require("../perseus-api.jsx").ClassNames;
+var InputWithExamples = require("../components/input-with-examples.jsx");
 
 var ThreeDGrapher = React.createClass({
     mixins: [Changeable],
@@ -45,7 +47,12 @@ var ThreeDGrapher = React.createClass({
     getScene: function(){
         var scene = new THREE.Scene();
         this.addLight(scene);
-        scene.add(this.getGraphMesh());
+        try{
+            scene.add(this.getGraphMesh());
+        }catch(err){
+            //TODO
+            console.log(err)
+        }
         scene.add(this.getXZPlane());        
         scene.add(this.getAxes());
         return scene;
@@ -100,18 +107,39 @@ var ThreeDGrapher = React.createClass({
         return controls
     },
 
+    makeStringFunctionable: function(str){
+        //TODO, use some reliable parsing library
+        var simpleReplacers = {
+            "pi" : "Math.PI",
+            "e" : "Math.E"
+        };
+        ["sin", "cos", "tan", "log"].forEach(function(expr){
+            simpleReplacers[expr] = "Math."+expr
+        });
+
+        for (key in simpleReplacers){
+            var reg = new RegExp(key, "g");
+            str = str.replace(reg, simpleReplacers[key]);
+        }
+        return str;
+    },
+
     getGraphMesh: function(){
-        bounds = this.props.bounds
+        var bounds = this.props.bounds;
         var u_range = bounds.u_max - bounds.u_min;
         var v_range = bounds.v_max - bounds.v_min;
         
         functions = {}
-        for (variable in this.props.functionStrings){
-            funcString = this.props.functionStrings[variable]
+        for (let variable in this.props.functionStrings){
+            var funcString = this.props.functionStrings[variable];
+            funcString = this.makeStringFunctionable(
+                KAS.parse(funcString).expr.print()
+            );
+            console.log("funcString: " + funcString);
             functions[variable] = new Function(
                 ["u", "v"],
                 "return " + funcString
-            )
+            );
         }
 
         var meshFunction = function(u, v){
@@ -230,23 +258,19 @@ var ThreeDGrapher = React.createClass({
 });
 
 var EntryComponent = React.createClass({
-    handleChange: function(){
-        this.props.onUserInput(
-            this.props.keyProp,
-            this.refs.input.value
-        );
-    },
 
     render: function(){
         return (
             <div>
             {this.props.prompt}
-            <input
-                type="text"
-                placeholder={this.props.placeholder}
-                value={this.props.value}
+            <MathInput
                 ref="input"
-                onChange={this.handleChange} />
+                className={ApiClassNames.INTERACTIVE}
+                value={this.props.value}
+                onChange={this.props.onChange}
+                convertDotToTimes={false}
+                buttonSets={["basic"]}
+            />
             </div>
         );
     }
@@ -260,7 +284,7 @@ var ThreeDGrapherEditor = React.createClass({
             functionStrings: {
                 x : "u",
                 y : "v",
-                z : "u*u + v*v"
+                z : "\\sin(u)\\sin(v)"
             }, 
             bounds: {
                 u_min : -5,
@@ -278,11 +302,12 @@ var ThreeDGrapherEditor = React.createClass({
     },
 
     handleFunctionChange: function(variable, newFuncString) {
-        this.handleChange(
-            this.props.functionStrings,
-            variable,
-            newFuncString
-        );
+        this.props.onChange({
+            "functionStrings": {
+                ...this.props.functionStrings,
+                [variable]: newFuncString,
+            },
+        });
     },
 
     handleBoundChange: function(bound, value) {
@@ -294,37 +319,34 @@ var ThreeDGrapherEditor = React.createClass({
 
     render: function() {
         var equationEntries = [];
-        for (var variable in this.props.functionStrings){
+        for (let variable in this.props.functionStrings) {
             equationEntries.push(
                 <EntryComponent 
                     key={variable}
                     keyProp={variable}//I want access to this
                     prompt={variable+"(u, v) = "}
-                    placeholder="Equation with u and v"
                     value={this.props.functionStrings[variable] || ""}
-                    onUserInput={this.handleFunctionChange}
-                 /> //
-            )
+                    onChange={(newString) => this.handleFunctionChange(variable, newString)}
+                 />
+            ); //
         }
 
-        var boundEntries = [];
-        for (var boundName in this.props.bounds){
-            boundEntries.push(
-                <EntryComponent
-                    key={boundName}
-                    keyProp={boundName}
-                    prompt={boundName+ ": "}
-                    placeholder="Numerical bound"
-                    value={this.props.bounds[boundName] || ""}
-                    onUserInput={this.handleBoundChange}
-                /> //
-            )
-        }
+        // var boundEntries = [];
+        // for (var boundName in this.props.bounds){
+        //     boundEntries.push(
+        //         <EntryComponent
+        //             key={boundName}
+        //             keyProp={boundName}
+        //             prompt={boundName+ ": "}
+        //             value={this.props.bounds[boundName] || ""}
+        //             onChange={this.change("bounds")}
+        //         /> //
+        //     )
+        // }
 
         return (
             <div className="perseus-three-d-grapher-editor">
                 <form>{equationEntries}</form>
-                <form>{boundEntries}</form>
             </div>
         );
     }
