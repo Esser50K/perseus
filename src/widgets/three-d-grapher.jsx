@@ -11,12 +11,14 @@ var Renderer = require("../renderer.jsx");
 var MathInput = require("../components/math-input.jsx");
 var ApiClassNames = require("../perseus-api.jsx").ClassNames;
 var InputWithExamples = require("../components/input-with-examples.jsx");
+var ColorPicker = require("./interaction/color-picker.jsx");
 
 var ThreeDGrapher = React.createClass({
     mixins: [Changeable],
 
     getDefaultProps: function() {
         return {
+            rotationRate: 0.001,
             cameraConfig: {
                 fov : 10,
                 near : 1,
@@ -26,12 +28,12 @@ var ThreeDGrapher = React.createClass({
                 z : 50,
             },
             lightConfig: {
-                ambientLightColor : 0xaaaaaa,
-                lightSourceColor : 0xdddddd,
+                ambientLightColor : 0x999999,
+                lightSourceColor : 0xaaaaaa,
                 lightSourceIntensity : 0.5,
                 lightSourcePositions : [
-                    [-1, 1, 1],
-                    [-1, -1, 1],
+                    [-1, 2, 1],
+                    [-1, -2, 1],
                 ],
             },
             controlsConfig: {
@@ -43,9 +45,8 @@ var ThreeDGrapher = React.createClass({
                 uSegments: 100,
                 vSegments: 100,
                 materialConfig: {
-                    color : 0x2194ce,
                     specular: 0x009900,
-                    shininess: 10,
+                    shininess: 5,
                     shading: THREE.SmoothShading, 
                     side: THREE.DoubleSide,
                     transparent : true,
@@ -146,7 +147,8 @@ var ThreeDGrapher = React.createClass({
     getSurfaceFunction: function(){
         var bounds = {};
         for (key in this.props.bounds){
-            bounds[key] = parseFloat(this.props.bounds[key])
+            var parsed = KAS.parse(this.props.bounds[key]);
+            bounds[key] = parsed.expr.eval();
         }
         var u_range = bounds.u_max - bounds.u_min;
         var v_range = bounds.v_max - bounds.v_min;
@@ -157,7 +159,6 @@ var ThreeDGrapher = React.createClass({
             expr = KAS.parse(funcString).expr
             expressions[variable] = expr
         }
-
         return function(u, v){
             var scaled_u = u_range*u + bounds.u_min;
             var scaled_v = v_range*v + bounds.v_min;
@@ -177,7 +178,10 @@ var ThreeDGrapher = React.createClass({
             this.getSurfaceFunction(), 
             config.uSegments, config.vSegments
         )
-        var material = new THREE.MeshPhongMaterial(config.materialConfig);
+        var material = new THREE.MeshPhongMaterial({
+            ...config.materialConfig,
+            "color" : this.props.color
+        });
         return new THREE.Mesh(geometry, material);
     },
 
@@ -242,6 +246,9 @@ var ThreeDGrapher = React.createClass({
 
         if (this.state) {
             const {controls, renderer, scene, camera} = this.state;
+            scene.children.forEach(function(child){
+                child.rotation.y += self.props.rotationRate;
+            });
             controls.update();
             renderer.render(scene, camera);
         }
@@ -258,6 +265,7 @@ var ThreeDGrapher = React.createClass({
         this.setState({
             scene: this.getScene()
         });
+        console.log(this);
     },
 
     render: function() {
@@ -291,6 +299,7 @@ var ThreeDGrapherEditor = React.createClass({
 
     getDefaultProps: function() {
         return {
+            color: KhanUtil.BLUE_D,
             functionStrings: {
                 x : "u",
                 y : "v",
@@ -345,7 +354,7 @@ var ThreeDGrapherEditor = React.createClass({
             <div className="perseus-three-d-grapher-editor">
                 <form>{functionConfig}</form>
             </div>
-        );
+        ); //
     }
 });
 
