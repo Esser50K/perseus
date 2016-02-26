@@ -15,15 +15,58 @@ var InputWithExamples = require("../components/input-with-examples.jsx");
 var ThreeDGrapher = React.createClass({
     mixins: [Changeable],
 
-    // propTypes: {
-    //     //TODO
-    // },
-
-    // getDefaultProps: function() {
-    //     return {
-    //         //TODO
-    //     };
-    // },
+    getDefaultProps: function() {
+        return {
+            cameraConfig: {
+                fov : 10,
+                near : 1,
+                far : 500,
+                x : -10, 
+                y : 20,
+                z : 50,
+            },
+            lightConfig: {
+                ambientLightColor : 0xaaaaaa,
+                lightSourceColor : 0xdddddd,
+                lightSourceIntensity : 0.5,
+                lightSourcePositions : [
+                    [-1, 1, 1],
+                    [-1, -1, 1],
+                ],
+            },
+            controlsConfig: {
+                enableDamping : true,
+                dampingFactor : 1.0,
+                enableZoom : false,
+            },
+            graphConfig: {
+                uSegments: 100,
+                vSegments: 100,
+                materialConfig: {
+                    color : 0x2194ce,
+                    specular: 0x009900,
+                    shininess: 10,
+                    shading: THREE.SmoothShading, 
+                    side: THREE.DoubleSide,
+                    transparent : true,
+                    opacity : 1,
+                },
+            },
+            axesConfig: {
+                axisRadius : 5,
+                step : 1,
+                tickSize : 0.1,
+                axesMaterialConfig : {
+                    color : 0xdddddd,
+                    linewidth: 2,
+                },
+                planeMaterialConfig : {
+                    color: 0x303030,
+                    linewidth : 1,
+                },
+            },
+        };
+    },
 
     initializeThreeState: function(){
         //TODO, automatic width and height changes
@@ -59,15 +102,12 @@ var ThreeDGrapher = React.createClass({
     },
 
     getCamera: function(aspectRatio){
-        var fov = 10;
-        var near = 1;
-        var far = 500;
-        [x, y, z] = [-10, 20, 50];
-
+        var config = this.props.cameraConfig;
         var camera = new THREE.PerspectiveCamera(
-            fov, aspectRatio, near, far
+            config.fov, aspectRatio, 
+            config.near, config.far
         );
-        camera.position.set(x, y, z);
+        camera.position.set(config.x, config.y, config.z);
         return camera;
     },
 
@@ -80,18 +120,13 @@ var ThreeDGrapher = React.createClass({
     },
 
     addLight: function(scene){
-        var ambientLightColor = 0xaaaaaa;
-        var lightSourceColor = 0xdddddd;
-        var lightSourceIntensity = 0.5;
-        var lightSourcePositions = [
-            [-1, 1, 1],
-            [-1, -1, 1]
-        ];
+        var config = this.props.lightConfig;
 
-        scene.add(new THREE.AmbientLight(ambientLightColor));
-        lightSourcePositions.forEach(function(position){
-            light = new THREE.DirectionalLight(
-                lightSourceColor, lightSourceIntensity
+        scene.add(new THREE.AmbientLight(config.ambientLightColor));
+        config.lightSourcePositions.forEach(function(position){
+            var light = new THREE.DirectionalLight(
+                config.lightSourceColor, 
+                config.lightSourceIntensity
             );
             var [x, y, z] = position;
             light.position.set(x, y, z);
@@ -100,15 +135,19 @@ var ThreeDGrapher = React.createClass({
     },
 
     getControls: function(camera, domElement){
+        var config = this.props.controlsConfig;
         var controls = new THREE.OrbitControls(camera, domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 1.0;
-        controls.enableZoom = false;
+        controls.enableZoom = config.enableZoom
+        controls.dampingFactor = config.dampingFactor
+        controls.enableDamping = config.enableDamping
         return controls
     },
 
-    getGraphMesh: function(){
-        var bounds = this.props.bounds;
+    getSurfaceFunction: function(){
+        var bounds = {};
+        for (key in this.props.bounds){
+            bounds[key] = parseFloat(this.props.bounds[key])
+        }
         var u_range = bounds.u_max - bounds.u_min;
         var v_range = bounds.v_max - bounds.v_min;
         
@@ -119,7 +158,7 @@ var ThreeDGrapher = React.createClass({
             expressions[variable] = expr
         }
 
-        var meshFunction = function(u, v){
+        return function(u, v){
             var scaled_u = u_range*u + bounds.u_min;
             var scaled_v = v_range*v + bounds.v_min;
             //return in order x, z, y to accomidate
@@ -130,39 +169,35 @@ var ThreeDGrapher = React.createClass({
                 expressions.y.eval({u: scaled_u, v: scaled_v})                 
             );
         };
+    },
+
+    getGraphMesh: function(){
+        var config = this.props.graphConfig;
         var geometry = new THREE.ParametricGeometry(
-            meshFunction, 100, 100
+            this.getSurfaceFunction(), 
+            config.uSegments, config.vSegments
         )
-        var material = new THREE.MeshPhongMaterial({
-            color : 0x2194ce,
-            specular: 0x009900,
-            shininess: 10,
-            shading: THREE.SmoothShading, 
-            side: THREE.DoubleSide,
-            transparent : true,
-            opacity : 1,
-        });
+        var material = new THREE.MeshPhongMaterial(config.materialConfig);
         return new THREE.Mesh(geometry, material);
     },
 
     getAxes: function(){
-        var axisRadius = 5;
-        var step = 1;
-        var tickSize = 0.1;
-
-        var material = new THREE.LineBasicMaterial({
-            color : 0xdddddd
-        });
+        var config = this.props.axesConfig;
+        var min = -config.axisRadius;
+        var max = config.axisRadius;
+        var material = new THREE.LineBasicMaterial(
+            config.axesMaterialConfig
+        );
         var xAxisGeometry = new THREE.Geometry();
         xAxisGeometry.vertices.push(
-            new THREE.Vector3(-axisRadius, 0, 0),
-            new THREE.Vector3(axisRadius, 0, 0)
+            new THREE.Vector3(min, 0, 0),
+            new THREE.Vector3(max, 0, 0)
         );
 
-        for (var i = -axisRadius; i <= axisRadius; i += step){
+        for (var i = min; i <= max; i += config.step){
             xAxisGeometry.vertices.push(
-                new THREE.Vector3(i, -tickSize, 0),
-                new THREE.Vector3(i, tickSize, 0)
+                new THREE.Vector3(i, -config.tickSize, 0),
+                new THREE.Vector3(i, config.tickSize, 0)
             );
         }
         xAxis = new THREE.LineSegments(xAxisGeometry, material);
@@ -179,24 +214,23 @@ var ThreeDGrapher = React.createClass({
     },
 
     getXZPlane: function() {
-        var axisRadius = 5;
-        var step = 1;
-
+        var config = this.props.axesConfig;
+        var min = -config.axisRadius;
+        var max = config.axisRadius
         /* Draw xz plane  instead of xy plane 
         to accomiate orbital controls. */
-        var material = new THREE.LineBasicMaterial({
-            color: 0x303030,
-            linewidth : 1
-        });
+        var material = new THREE.LineBasicMaterial(
+            config.planeMaterialConfig
+        );
         var  xz_plane = new THREE.Geometry();
-        for (var i = -axisRadius; i <= axisRadius; i += step){
+        for (var i = min; i <= max; i += config.step){
             xz_plane.vertices.push(
-                new THREE.Vector3(-axisRadius, 0, i),
-                new THREE.Vector3(axisRadius, 0, i)
+                new THREE.Vector3(min, 0, i),
+                new THREE.Vector3(max, 0, i)
             );
             xz_plane.vertices.push(
-                new THREE.Vector3(i, 0, -axisRadius),
-                new THREE.Vector3(i, 0, axisRadius)
+                new THREE.Vector3(i, 0, min),
+                new THREE.Vector3(i, 0, max)
             );
         }
         return new THREE.LineSegments(xz_plane, material);
@@ -223,7 +257,7 @@ var ThreeDGrapher = React.createClass({
         //Redraw graph when receiving new props
         this.setState({
             scene: this.getScene()
-        })
+        });
     },
 
     render: function() {
@@ -235,7 +269,6 @@ var ThreeDGrapher = React.createClass({
 });
 
 var EntryComponent = React.createClass({
-
     render: function(){
         return (
             <div>
@@ -264,66 +297,53 @@ var ThreeDGrapherEditor = React.createClass({
                 z : "\\sin(u)\\sin(v)"
             }, 
             bounds: {
-                u_min : -5,
-                u_max : 5,
-                v_min : -5,
-                v_max : 5
+                u_min : "-5",
+                u_max : "5",
+                v_min : "-5",
+                v_max : "5"
             }
         };
     },
 
-    handleChange: function(object, key, value){
-        object[key] = value;
-        this.forceUpdate();
-        this.change(this.props);
-    },
-
-    handleFunctionChange: function(variable, newFuncString) {
-        this.props.onChange({
-            "functionStrings": {
-                ...this.props.functionStrings,
-                [variable]: newFuncString,
-            },
-        });
-    },
-
-    handleBoundChange: function(bound, value) {
-        //TODO, Can't type minus first, or 0
-        this.handleChange(
-            this.props.bounds, bound, parseInt(value)
-        );
+    //For example, changing functionStrings.x to value
+    handlePropElementChange: function(propName, key, value){
+        console.log("From editor:" + value);        
+        //Feels hacky...
+        var changeArgs = {};
+        changeArgs[propName] = {
+            ...this.props[propName],
+            [key]: value,
+        };
+        this.props.onChange(changeArgs);
     },
 
     render: function() {
-        var equationEntries = [];
-        for (let variable in this.props.functionStrings) {
-            equationEntries.push(
-                <EntryComponent 
-                    key={variable}
-                    keyProp={variable}//I want access to this
-                    prompt={variable+"(u, v) = "}
-                    value={this.props.functionStrings[variable] || ""}
-                    onChange={(newString) => this.handleFunctionChange(variable, newString)}
-                 />
-            ); //
+        var functionConfig = [];
+        var functionProps = ["functionStrings", "bounds"];
+        for(var i = 0; i < functionProps.length; i++){
+            let prop = functionProps[i];
+            if (prop == "functionStrings"){
+                var promptSuffix = "(u, v) = ";
+            }else{
+                var promptSuffix = ": ";
+            }
+            for (let key in this.props[prop]) {
+                functionConfig.push(
+                    <EntryComponent 
+                        key={key}
+                        prompt={key+promptSuffix}
+                        value={this.props[prop][key] || ""}
+                        onChange={(newString) => this.handlePropElementChange(
+                            prop, key, newString
+                        )}
+                     />
+                ); //
+            }
         }
-
-        // var boundEntries = [];
-        // for (var boundName in this.props.bounds){
-        //     boundEntries.push(
-        //         <EntryComponent
-        //             key={boundName}
-        //             keyProp={boundName}
-        //             prompt={boundName+ ": "}
-        //             value={this.props.bounds[boundName] || ""}
-        //             onChange={this.change("bounds")}
-        //         /> //
-        //     )
-        // }
 
         return (
             <div className="perseus-three-d-grapher-editor">
-                <form>{equationEntries}</form>
+                <form>{functionConfig}</form>
             </div>
         );
     }
