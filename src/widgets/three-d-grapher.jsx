@@ -18,6 +18,7 @@ var ThreeDGrapher = React.createClass({
 
     getDefaultProps: function() {
         return {
+            surfacesData: [],//Populated based on editor
             rotationRate: 0.001,
             cameraConfig: {
                 fov : 10,
@@ -91,12 +92,15 @@ var ThreeDGrapher = React.createClass({
     getScene: function(){
         var scene = new THREE.Scene();
         this.addLight(scene);
-        try{
-            scene.add(this.getGraphMesh());
-        }catch(err){
-            //TODO
-            console.log(err)
-        }
+        var numSurfaces = this.props.surfacesData.length
+        for(var i = 0; i < numSurfaces; i++){
+            try{
+                scene.add(this.getGraphMesh(i));
+            }catch(err){
+                //TODO
+                console.log(err)
+            }
+        }    
         scene.add(this.getXZPlane());        
         scene.add(this.getAxes());
         return scene;
@@ -144,18 +148,19 @@ var ThreeDGrapher = React.createClass({
         return controls
     },
 
-    getSurfaceFunction: function(){
+    getSurfaceFunction: function(index){
+        var data = this.props.surfacesData[index];
         var bounds = {};
-        for (key in this.props.bounds){
-            var parsed = KAS.parse(this.props.bounds[key]);
+        for (key in data.bounds){
+            var parsed = KAS.parse(data.bounds[key]);
             bounds[key] = parsed.expr.eval();
         }
         var u_range = bounds.u_max - bounds.u_min;
         var v_range = bounds.v_max - bounds.v_min;
-        
+            
         expressions = {};
-        for (let variable in this.props.functionStrings){
-            var funcString = this.props.functionStrings[variable];
+        for (let variable in data.functionStrings){
+            var funcString = data.functionStrings[variable];
             expr = KAS.parse(funcString).expr
             expressions[variable] = expr
         }
@@ -172,15 +177,16 @@ var ThreeDGrapher = React.createClass({
         };
     },
 
-    getGraphMesh: function(){
+    getGraphMesh: function(index){
+        var data = this.props.surfacesData[index];
         var config = this.props.graphConfig;
         var geometry = new THREE.ParametricGeometry(
-            this.getSurfaceFunction(), 
+            this.getSurfaceFunction(index),
             config.uSegments, config.vSegments
         )
         var material = new THREE.MeshPhongMaterial({
             ...config.materialConfig,
-            "color" : this.props.color
+            "color" : data.color
         });
         return new THREE.Mesh(geometry, material);
     },
@@ -246,8 +252,9 @@ var ThreeDGrapher = React.createClass({
 
         if (this.state) {
             const {controls, renderer, scene, camera} = this.state;
+            var rotationRate = this.props.rotationRate;
             scene.children.forEach(function(child){
-                child.rotation.y += self.props.rotationRate;
+                child.rotation.y += rotationRate;
             });
             controls.update();
             renderer.render(scene, camera);
@@ -265,7 +272,6 @@ var ThreeDGrapher = React.createClass({
         this.setState({
             scene: this.getScene()
         });
-        console.log(this);
     },
 
     render: function() {
@@ -277,6 +283,8 @@ var ThreeDGrapher = React.createClass({
 });
 
 var EntryComponent = React.createClass({
+    mixins: [Changeable, EditorJsonify],
+
     render: function(){
         return (
             <div>
@@ -294,10 +302,52 @@ var EntryComponent = React.createClass({
     }
 });
 
+var SurfaceEditor = React.createClass({
+    mixins: [Changeable, EditorJsonify],
+
+    handlePropElementChange: function(propName, key, value){
+        var newSurfaceData = this.props;
+        newSurfaceData[propName][key] = value;
+        this.props.onChange(this.props.index, newSurfaceData);
+    },
+
+    render: function() {
+        var functionDataEntries = [];
+        var functionProps = ["functionStrings", "bounds"];
+        for(var i = 0; i < functionProps.length; i++){
+            let prop = functionProps[i];
+            if (prop == "functionStrings"){
+                var promptSuffix = "(u, v) = ";
+            }else{
+                var promptSuffix = ": ";
+            }
+            for (let key in this.props[prop]) {
+                functionDataEntries.push(
+                    <EntryComponent
+                        key={key}
+                        prompt={key+promptSuffix}
+                        value={this.props[prop][key] || ""}
+                        onChange={(newString) => this.handlePropElementChange(
+                            prop, key, newString
+                        )}
+                     />
+                ); //
+            }
+        }
+
+        return (
+            <div className="surface-editor">
+                <form>{functionDataEntries}</form>
+            </div>
+        );
+    }
+
+});
+
 var ThreeDGrapherEditor = React.createClass({
     mixins: [Changeable, EditorJsonify],
 
-    getDefaultProps: function() {
+    getDefaultSurfaceData: function() {
         return {
             color: KhanUtil.BLUE_D,
             functionStrings: {
@@ -314,48 +364,45 @@ var ThreeDGrapherEditor = React.createClass({
         };
     },
 
-    //For example, changing functionStrings.x to value
-    handlePropElementChange: function(propName, key, value){
-        console.log("From editor:" + value);        
-        //Feels hacky...
-        var changeArgs = {};
-        changeArgs[propName] = {
-            ...this.props[propName],
-            [key]: value,
+    getDefaultProps: function() {
+        return {
+            surfacesData: [],
         };
-        this.props.onChange(changeArgs);
     },
 
-    render: function() {
-        var functionConfig = [];
-        var functionProps = ["functionStrings", "bounds"];
-        for(var i = 0; i < functionProps.length; i++){
-            let prop = functionProps[i];
-            if (prop == "functionStrings"){
-                var promptSuffix = "(u, v) = ";
-            }else{
-                var promptSuffix = ": ";
-            }
-            for (let key in this.props[prop]) {
-                functionConfig.push(
-                    <EntryComponent 
-                        key={key}
-                        prompt={key+promptSuffix}
-                        value={this.props[prop][key] || ""}
-                        onChange={(newString) => this.handlePropElementChange(
-                            prop, key, newString
-                        )}
-                     />
-                ); //
-            }
-        }
+    handleSurfaceDataChange: function(index, data){
+        // var surfacesData = this.props.surfacesData;
+        // surfacesData[index] = data;
+        // this.props.onChange({
+        //     surfacesData: surfacesData
+        // });
+        this.props.surfacesData[index] = data;
+        this.forceUpdate();
+    },
 
+    render: function(){
+        var surfaceEditors = [];
+        for(var i = 0; i < 1; i++){
+            if (this.props.surfacesData.length < i+1){
+                this.props.surfacesData.push(
+                    this.getDefaultSurfaceData()
+                );
+            }
+            surfaceEditors.push(
+                <SurfaceEditor
+                    key={i}
+                    index={i}
+                    {...this.props.surfacesData[i]}
+                    onChange={this.handleSurfaceDataChange}
+                />
+            );//
+        }
         return (
             <div className="perseus-three-d-grapher-editor">
-                <form>{functionConfig}</form>
+            {surfaceEditors}
             </div>
         ); //
-    }
+    },
 });
 
 
