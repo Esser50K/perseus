@@ -40,7 +40,7 @@ numbers exist both in perseus.js and in the itemData saved to the datastore
 by the Perseus editor.
 
 Each of these versions consists of a major and minor version number.
-A perseus version can render an itemData version iff its global
+A perseus version can render an itemData version if its global
 `itemDataVersion` and each of its widget versions are greater than or equal
 to those sent to perseus as itemData. A major version increase will happen
 when the saving format of this itemData has changed. Perseus clients should
@@ -69,3 +69,4 @@ of the Perseus code works and how to extend it.
 ## License
 
 [MIT License](http://opensource.org/licenses/MIT)
+
